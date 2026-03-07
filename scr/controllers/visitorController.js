@@ -87,17 +87,11 @@ exports.verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Approve visitor
+    // Move to pending status
     visitor.isVerified = true;
-    visitor.status = "approved";
+    visitor.status = "pending";
     visitor.otp = null;
     visitor.otpExpires = null;
-
-    // Generate QR code
-    const qrData = `VISITOR:${visitor._id}`;
-    const qrCode = await QRCode.toDataURL(qrData);
-
-    visitor.qrCode = qrCode;
 
     await visitor.save();
 
@@ -110,4 +104,100 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
+// Get pending visitors (for host)
+exports.getPendingVisitors = async (req, res) => {
+  try {
+    const visitors = await Visitor.find({ status: "pending" }).sort({ createdAt: -1 });
+    res.json(visitors);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
+// Approve visitor (host)
+exports.approveVisitor = async (req, res) => {
+  try {
+    const { visitorId, validityHours = 24 } = req.body;
+
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      return res.status(404).json({ message: "Visitor not found" });
+    }
+
+    visitor.status = "approved";
+    visitor.approvedAt = new Date();
+    visitor.validUntil = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+
+    // Generate QR code
+    const qrData = `VISITOR:${visitor._id}`;
+    const qrCode = await QRCode.toDataURL(qrData);
+    visitor.qrCode = qrCode;
+
+    await visitor.save();
+
+    res.json({
+      message: "Visitor approved successfully",
+      visitor,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Check-in visitor (guard)
+exports.checkInVisitor = async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      return res.status(404).json({ message: "Visitor not found" });
+    }
+
+    if (visitor.status !== "approved") {
+      return res.status(400).json({ message: "Visitor not approved" });
+    }
+
+    visitor.status = "checked-in";
+    visitor.checkInTime = new Date();
+    await visitor.save();
+
+    res.json({
+      message: "Visitor checked in successfully",
+      visitor,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get active visitors (guard)
+exports.getActiveVisitors = async (req, res) => {
+  try {
+    const visitors = await Visitor.find({ status: "checked-in" }).sort({ checkInTime: -1 });
+    res.json(visitors);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Check-out visitor (guard)
+exports.checkOutVisitor = async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      return res.status(404).json({ message: "Visitor not found" });
+    }
+
+    if (visitor.status !== "checked-in") {
+      return res.status(400).json({ message: "Visitor not checked in" });
+    }
+
+    visitor.status = "checked-out";
+    visitor.checkOutTime = new Date();
+    await visitor.save();
+
+    res.json({
+      message: "Visitor checked out successfully",

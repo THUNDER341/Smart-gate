@@ -17,9 +17,14 @@ const visitorSchema = new mongoose.Schema(
     status: {
       type: String,
       default: "pending",
+      enum: ["pending", "approved", "checked-in", "checked-out", "rejected"]
     },
 
-    qrCode: String
+    qrCode: String,
+    approvedAt: Date,
+    validUntil: Date,
+    checkInTime: Date,
+    checkOutTime: Date
   },
   { timestamps: true }
 );
