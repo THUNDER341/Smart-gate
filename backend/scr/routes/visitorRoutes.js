@@ -13,7 +13,8 @@ const {
   checkInVisitor,
   getApprovedVisitors,
   getActiveVisitors,
-  checkOutVisitor
+  checkOutVisitor,
+  sendQRCodeEmail
 } = require("../controllers/visitorController");
 
 // Public routes
@@ -28,6 +29,7 @@ router.get("/approved", authenticate, getApprovedVisitors);
 router.post("/check-in", authenticate, checkInVisitor);
 router.get("/active", authenticate, getActiveVisitors);
 router.post("/check-out", authenticate, checkOutVisitor);
+router.post("/:id/send-qr-email", authenticate, sendQRCodeEmail);
 
 // Get visitor by ID
 router.get("/:id", getVisitorById);

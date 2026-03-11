@@ -4,6 +4,7 @@ const visitorSchema = new mongoose.Schema(
   {
     name: String,
     phone: String,
+    email: String, // Optional email for sending QR code
     host: String,
     purpose: String,
 

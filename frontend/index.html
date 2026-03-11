@@ -7,22 +7,20 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand-wrap">
-        <img id="rruLogo" src="./assets/rru-logo.png" alt="RRU Logo" class="logo" />
-        <div>
-          <h1>Smart Gate Visitor Management</h1>
-          <p class="subtitle">Rashtriya Raksha University - Student Project Demo</p>
+    <div class="portal-container">
+      <header class="portal-header">
+        <div class="brand-wrap">
+          <img id="rruLogo" src="./assets/rru-logo.png" alt="RRU Logo" class="logo" />
+          <div class="header-text">
+            <h1>Staff Dashboard</h1>
+            <p class="subtitle">Smart Gate Management System</p>
+          </div>
         </div>
-      </div>
-      <div class="server-config">
-        <label for="apiBase">API Base</label>
-        <input id="apiBase" type="text" value="http://localhost:5000/api" />
-      </div>
-    </header>
+        <a href="landing.html" class="btn-back">← Back to Home</a>
+      </header>
 
-    <main class="layout">
-      <section class="panel nav-panel">
+      <main class="portal-main">
+        <section class="panel nav-panel">
         <h2>Modules</h2>
         <div class="tab-row">
           <button class="tab-btn active" data-tab="visitor">Visitor Register</button>
@@ -181,6 +179,7 @@
         <div id="statusBox" class="status-box">Ready</div>
       </section>
     </main>
+    </div>
 
     <footer class="footer">
       <p>Theme: White + Navy Blue | Academic Demo for RRU</p>

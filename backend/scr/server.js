@@ -18,9 +18,11 @@ mongoose
 // IMPORT ROUTES
 const authRoutes = require("./routes/authRoutes");
 const visitorRoutes = require("./routes/visitorRoutes");
+const firebaseAuthRoutes = require("./routes/firebaseAuthRoutes");
 
 // USE ROUTES
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", firebaseAuthRoutes);
 app.use("/api/visitors", visitorRoutes);
 
 // Test route

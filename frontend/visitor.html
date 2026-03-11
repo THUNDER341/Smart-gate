@@ -6,19 +6,24 @@
     <title>Visitor Portal - Smart Gate</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="portal-wrapper">
     <div class="portal-container">
         <!-- Header -->
         <header class="portal-header">
             <div class="brand-wrap">
                 <img src="./assets/rru-logo.png" alt="RRU Logo" class="logo">
-                <div>
+                <div class="header-text">
                     <h1>Visitor Portal</h1>
-                    <p class="subtitle">Smart Gate System</p>
+                    <p class="subtitle">Smart Gate Management System</p>
                 </div>
             </div>
             <a href="landing.html" class="btn-back">← Back to Home</a>
         </header>
+
+        <div style="display:none;">
+            <input id="apiBase" value="http://localhost:5000/api" />
+            <div id="statusBox"></div>
+        </div>
 
         <main class="portal-main">
             <!-- Registration Section -->
@@ -30,13 +35,19 @@
                     <form id="visitorForm">
                         <div class="form-group">
                             <label for="name">Full Name *</label>
-                            <input type="text" id="name" placeholder="Enter your full name" required>
+                            <input type="text" id="name" placeholder="Enter your full name" required autocomplete="name">
                         </div>
                         
                         <div class="form-group">
                             <label for="phone">Phone Number *</label>
-                            <input type="tel" id="phone" placeholder="10-digit mobile number" maxlength="10" required>
+                            <input type="tel" id="phone" placeholder="10-digit mobile number" maxlength="10" required autocomplete="tel">
                             <small>OTP will be sent to this number</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Email Address (Optional)</label>
+                            <input type="email" id="email" placeholder="your.email@example.com" autocomplete="email">
+                            <small>Optional: Receive QR code via email when approved</small>
                         </div>
                         
                         <div class="form-group">
@@ -67,12 +78,12 @@
                     <form id="otpForm">
                         <div class="form-group">
                             <label for="otpPhone">Phone Number *</label>
-                            <input type="tel" id="otpPhone" placeholder="Your registered phone number" maxlength="10" required>
+                            <input type="tel" id="otpPhone" placeholder="Your registered phone number" maxlength="10" required autocomplete="tel">
                         </div>
                         
                         <div class="form-group">
                             <label for="otp">OTP Code *</label>
-                            <input type="text" id="otp" placeholder="Enter 6-digit OTP" maxlength="6" pattern="[0-9]{6}" required>
+                            <input type="text" id="otp" placeholder="Enter 6-digit OTP" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code">
                             <small>OTP is valid for 2 minutes</small>
                         </div>
                         
@@ -95,6 +106,7 @@
         </footer>
     </div>
 
+    <script src="script.js"></script>
     <script src="visitor.js"></script>
 </body>
 </html>

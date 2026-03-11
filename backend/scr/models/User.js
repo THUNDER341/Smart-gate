@@ -14,11 +14,11 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: false,
     },
     phone: {
       type: String,
-      required: true,
+      required: false,
     },
     role: {
       type: String,
@@ -28,6 +28,22 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    firebaseUid: {
+      type: String,
+      required: false,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: {
+      type: String,
+      required: false,
+    },
+    verificationTokenExpires: {
+      type: Date,
+      required: false,
     },
   },
   { timestamps: true }

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard Registration - Smart Gate</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="portal-wrapper">
+        <!-- Header -->
+        <header class="portal-header">
+            <div class="brand-wrap">
+                <img src="./assets/rru-logo.png" alt="RRU Logo" class="logo">
+                <div class="header-text">
+                    <h1>Guard Registration</h1>
+                    <p class="subtitle">Smart Gate Management System</p>
+                </div>
+            </div>
+            <a href="guard-login.html" class="btn-back">← Back to Login</a>
+        </header>
+
+        <main class="portal-main">
+            <div class="register-container">
+                <h2>Create Guard Account</h2>
+                <form id="guardRegisterForm">
+            <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    placeholder="Your full name" 
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    placeholder="your.email@rru.ac.in" 
+                    required
+                    autocomplete="email"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    placeholder="10-digit mobile number" 
+                    maxlength="10"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password *</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    placeholder="Create a strong password (min 6 characters)" 
+                    required
+                    autocomplete="new-password"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password *</label>
+                <input 
+                    type="password" 
+                    id="confirmPassword" 
+                    placeholder="Confirm your password" 
+                    required
+                    autocomplete="new-password"
+                >
+            </div>
+            
+            <div class="note">
+                ℹ️ You will need to verify your email before you can log in.
+            </div>
+            
+            <button type="submit" class="btn">Register as Guard</button>
+        </form>
+        
+        <div id="statusMessage" class="status-message"></div>
+        
+        <div class="footer-links">
+            <p>Already have an account? <a href="guard-login.html">Login here</a></p>
+            <p><a href="landing.html">← Back to Home</a></p>
+        </div>
+    </div>
+
+    <script src="firebase-auth.js?v=3"></script>
+    <script>
+        document.getElementById('guardRegisterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const phone = document.getElementById('phone').value.trim();
+            const statusDiv = document.getElementById('statusMessage');
+            
+            // Validate inputs
+            if (password.length < 6) {
+                statusDiv.textContent = 'Password must be at least 6 characters long';
+                statusDiv.className = 'status-message error';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                statusDiv.textContent = 'Passwords do not match';
+                statusDiv.className = 'status-message error';
+                statusDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                statusDiv.textContent = 'Registering...';
+                statusDiv.className = 'status-message';
+                statusDiv.style.display = 'block';
+                
+                const result = await window.firebaseAuth.register(
+                    name, 
+                    email, 
+                    password, 
+                    phone, 
+                    'guard'
+                );
+                
+                statusDiv.textContent = '✓ Registration successful! A verification email has been sent to your inbox. Please verify your email and then login.';
+                statusDiv.className = 'status-message success';
+                statusDiv.style.display = 'block';
+                
+                // Clear form
+                document.getElementById('guardRegisterForm').reset();
+                
+                // Redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = 'guard-login.html';
+                }, 3000);
+            } catch (error) {
+                statusDiv.textContent = `✗ Registration failed: ${error.message}`;
+                statusDiv.className = 'status-message error';
+                statusDiv.style.display = 'block';
+            }
+        });
+    </script>
+</main>
+</div>
+</body>
+</html>

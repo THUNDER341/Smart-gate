@@ -1,14 +1,20 @@
 // Guard Portal JavaScript
-const API_BASE = 'http://localhost:5000/api';
-let authToken = localStorage.getItem('guard_token');
-let guardInfo = JSON.parse(localStorage.getItem('guard_info') || '{}');
+// API_BASE is already defined in firebase-auth.js, don't redeclare
+// Check for Firebase auth token first, fallback to old guard_token
+let authToken = localStorage.getItem('authToken') || localStorage.getItem('guard_token');
+let guardInfo = localStorage.getItem('userRole') ? {
+    name: localStorage.getItem('userEmail'),
+    email: localStorage.getItem('userEmail'),
+    role: localStorage.getItem('userRole'),
+    emailVerified: localStorage.getItem('emailVerified') === 'true'
+} : JSON.parse(localStorage.getItem('guard_info') || '{}');
 let refreshTimer = null;
 let visitorsData = [];
 let approvedVisitorsData = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    if (authToken && guardInfo.role === 'guard') {
+    if (authToken && (guardInfo.role === 'guard' || localStorage.getItem('userRole') === 'guard')) {
         showDashboard();
         loadVisitors();
         setupAutoRefresh();
@@ -28,7 +34,9 @@ function showDashboard() {
     document.getElementById('login-section').classList.remove('active');
     document.getElementById('dashboard-section').classList.add('active');
     document.getElementById('logoutBtn').style.display = 'inline-block';
-    document.getElementById('guardName').textContent = guardInfo.name || 'Guard';
+    // Get name from guardInfo or fallback to email
+    const displayName = guardInfo.name || localStorage.getItem('userEmail') || 'Guard';
+    document.getElementById('guardName').textContent = displayName;
 }
 
 // Status message helper
@@ -77,29 +85,53 @@ async function apiRequest(endpoint, method = 'GET', body = null, useAuth = false
     }
 }
 
-// Login Form
+// Login Form - Firebase Authentication
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const formData = {
-        email: document.getElementById('email').value.trim(),
-        password: document.getElementById('password').value
-    };
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
     
     try {
-        showStatus('Logging in...', 'info');
-        const result = await apiRequest('/auth/login', 'POST', formData);
+        showStatus('Logging in with Firebase...', 'info');
         
-        if (result.user.role !== 'guard') {
-            showStatus('✗ Access denied: Guard role required', 'error');
-            return;
+        // Use Firebase auth if available, fallback to old auth
+        if (window.firebaseAuth) {
+            const result = await window.firebaseAuth.login(email, password);
+            
+            if (result.user.role !== 'guard') {
+                showStatus('✗ Access denied: Guard role required', 'error');
+                return;
+            }
+            
+            if (!result.user.emailVerified) {
+                showStatus('✗ Please verify your email before logging in. Check your inbox for verification link.', 'error');
+                return;
+            }
+            
+            authToken = result.token;
+            guardInfo = result.user;
+        } else {
+            // Fallback to old JWT login
+            const formData = { email, password };
+            const result = await apiRequest('/auth/login', 'POST', formData);
+            
+            if (result.user.role !== 'guard') {
+                showStatus('✗ Access denied: Guard role required', 'error');
+                return;
+            }
+            
+            authToken = result.token;
+            guardInfo = result.user;
         }
         
-        authToken = result.token;
-        guardInfo = result.user;
-        
+        // Store in both old and new format for compatibility
         localStorage.setItem('guard_token', authToken);
         localStorage.setItem('guard_info', JSON.stringify(guardInfo));
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('userRole', guardInfo.role);
+        localStorage.setItem('userEmail', guardInfo.email || email);
+        localStorage.setItem('emailVerified', guardInfo.emailVerified || 'true');
         
         showStatus('✓ Login successful!', 'success');
         
@@ -120,8 +152,14 @@ document.getElementById('logoutBtn').addEventListener('click', logout);
 function logout() {
     authToken = null;
     guardInfo = {};
+    // Clear old tokens
     localStorage.removeItem('guard_token');
     localStorage.removeItem('guard_info');
+    // Clear Firebase tokens
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('emailVerified');
     
     if (refreshTimer) {
         clearInterval(refreshTimer);

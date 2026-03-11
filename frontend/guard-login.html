@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard Login - Smart Gate</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="portal-wrapper">
+        <!-- Header -->
+        <header class="portal-header">
+            <div class="brand-wrap">
+                <img src="./assets/rru-logo.png" alt="RRU Logo" class="logo">
+                <div class="header-text">
+                    <h1>Guard Portal</h1>
+                    <p class="subtitle">Smart Gate Management System</p>
+                </div>
+            </div>
+            <a href="landing.html" class="btn-back">← Back to Home</a>
+        </header>
+
+        <main class="portal-main">
+            <div class="login-container">
+                <h2>Guard Login</h2>
+                <form id="guardLoginForm">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+
+                    <div style="text-align: right; margin-bottom: 1.5rem; margin-top: -1rem;">
+                        <a href="forgot-password.html" style="color: var(--navy); text-decoration: none; font-size: 0.85rem; font-weight: 600;">Forgot Password?</a>
+                    </div>
+                    
+                    <button type="submit" class="btn">Login to Security Panel</button>
+                </form>
+                
+                <div id="statusMessage" class="status-message"></div>
+                
+                <div class="footer-links">
+                    <p>Don't have an account? <a href="guard-register.html">Register as Guard</a></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="firebase-auth.js?v=3"></script>
+    <script>
+        document.getElementById('guardLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const statusDiv = document.getElementById('statusMessage');
+            
+            try {
+                statusDiv.textContent = 'Logging in...';
+                statusDiv.className = 'status-message';
+                statusDiv.style.display = 'block';
+                
+                const result = await window.firebaseAuth.login(email, password);
+                
+                if (result.user.role !== 'guard') {
+                    throw new Error('This account is not authorized as a guard. Please contact administration.');
+                }
+                
+                // Also store in old format for compatibility with guard.html
+                localStorage.setItem('guard_token', result.token);
+                localStorage.setItem('guard_info', JSON.stringify(result.user));
+                
+                statusDiv.textContent = '✓ Login successful! Redirecting...';
+                statusDiv.className = 'status-message success';
+                statusDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    window.location.href = 'guard.html';
+                }, 1500);
+            } catch (error) {
+                statusDiv.textContent = `✗ Login failed: ${error.message}`;
+                statusDiv.className = 'status-message error';
+                statusDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

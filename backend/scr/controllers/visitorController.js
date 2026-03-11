@@ -1,17 +1,27 @@
 const Visitor = require("../models/Visitor");
 const QRCode = require("qrcode");
+const { sendQRCodeEmail } = require("../services/emailService");
+const {
+  formatPhone,
+  sendOtpViaVerify,
+  verifyOtpViaVerify,
+  useVerifyAPI,
+} = require("../services/smsService");
 
 // Register visitor
 exports.registerVisitor = async (req, res) => {
   try {
-    const { name, phone, host, purpose } = req.body;
+    const { name, phone, email, host, purpose } = req.body;
 
-    // Generate 6-digit OTP
+    const formattedPhone = formatPhone(phone);
+
+    // Keep local OTP fields for mock/testing compatibility.
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const visitor = new Visitor({
       name,
       phone,
+      email, // Optional email for sending QR code later
       host,
       purpose,
       otp,
@@ -20,11 +30,29 @@ exports.registerVisitor = async (req, res) => {
 
     await visitor.save();
 
-    res.status(201).json({
+    const otpResponse = await sendOtpViaVerify(formattedPhone);
+
+    const response = {
       message: "Visitor registered successfully. OTP sent to phone.",
       visitorId: visitor._id,
-      otp, // For testing only - in production, send via SMS and don't return this
-    });
+    };
+
+    // If using real Twilio API, we don't return the OTP in the JSON response
+    if (otpResponse.mock && otpResponse.otp) {
+      visitor.otp = otpResponse.otp;
+      visitor.otpExpires = Date.now() + 10 * 60 * 1000;
+      await visitor.save();
+      response.otp = otpResponse.otp;
+      response.mock = true;
+    } else {
+      // For real Twilio Verify, we clear any local dummy OTP to ensure 
+      // the only way to verify is through the Twilio check.
+      visitor.otp = null;
+      visitor.otpExpires = null;
+      await visitor.save();
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -57,17 +85,23 @@ exports.sendOtp = async (req, res) => {
       return res.status(404).json({ message: "Visitor not found" });
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const formattedPhone = formatPhone(visitor.phone);
+    const otpResponse = await sendOtpViaVerify(formattedPhone);
 
-    visitor.otp = otp;
-    visitor.otpExpires = Date.now() + 2 * 60 * 1000; // 2 minutes
+    // Keep OTP persisted only when mock mode is enabled.
+    if (otpResponse.mock && otpResponse.otp) {
+      visitor.otp = otpResponse.otp;
+      visitor.otpExpires = Date.now() + 10 * 60 * 1000;
+    }
     await visitor.save();
 
-    res.json({
-      message: "OTP sent",
-      otp, // for testing only
-    });
+    const response = { message: "OTP sent" };
+    if (otpResponse.mock && otpResponse.otp) {
+      response.otp = otpResponse.otp;
+      response.mock = true;
+    }
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -77,20 +111,41 @@ exports.sendOtp = async (req, res) => {
 exports.verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
+    console.log('--- OTP Verification Request ---');
+    console.log('Original Phone:', phone);
+    console.log('OTP Received:', otp);
+
+    const formattedPhone = formatPhone(phone);
+    console.log('Formatted Phone (E.164):', formattedPhone);
 
     // Find visitor by phone number
+    // Try both exact phone and formatted if needed, but usually storage is raw
     const visitor = await Visitor.findOne({ phone }).sort({ createdAt: -1 });
 
     if (!visitor) {
+      console.log('❌ Visitor not found in DB for phone:', phone);
       return res.status(404).json({ message: "Visitor not found with this phone number" });
     }
+    
+    console.log('✅ Visitor found:', visitor.name, '| Stored OTP:', visitor.otp);
 
-    // OTP validation
-    if (
-      visitor.otp !== otp ||
-      !visitor.otpExpires ||
-      visitor.otpExpires < Date.now()
-    ) {
+    let isValidOtp = false;
+
+    if (useVerifyAPI) {
+      console.log('Using Twilio Verify API for formatted phone:', formattedPhone);
+      const verifyResponse = await verifyOtpViaVerify(formattedPhone, otp);
+      isValidOtp = !!verifyResponse.success;
+      console.log('Twilio Verify Result:', isValidOtp);
+    } else {
+      // Local fallback validation
+      isValidOtp =
+        visitor.otp === otp &&
+        !!visitor.otpExpires &&
+        visitor.otpExpires >= Date.now();
+      console.log('Local Mode Result:', isValidOtp);
+    }
+
+    if (!isValidOtp) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
@@ -147,6 +202,27 @@ exports.approveVisitor = async (req, res) => {
     visitor.qrCode = qrCode;
 
     await visitor.save();
+
+    // Send QR code via email if visitor provided email
+    if (visitor.email) {
+      try {
+        await sendQRCodeEmail(
+          visitor.email,
+          visitor.name,
+          qrCode,
+          {
+            host: visitor.host,
+            purpose: visitor.purpose,
+            phone: visitor.phone,
+            validUntil: visitor.validUntil.toLocaleString(),
+          }
+        );
+        console.log(`✓ QR code email sent to ${visitor.email}`);
+      } catch (emailError) {
+        console.error('Failed to send QR code email:', emailError.message);
+        // Don't fail the approval if email fails
+      }
+    }
 
     res.json({
       message: "Visitor approved successfully",
@@ -234,6 +310,57 @@ exports.checkOutVisitor = async (req, res) => {
       visitor,
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Send QR code via email (manual send by host)
+exports.sendQRCodeEmail = async (req, res) => {
+  try {
+    const { visitorId } = req.params;
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email address required" });
+    }
+
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      return res.status(404).json({ message: "Visitor not found" });
+    }
+
+    if (visitor.status !== "approved") {
+      return res.status(400).json({ message: "Visitor must be approved first" });
+    }
+
+    if (!visitor.qrCode) {
+      return res.status(400).json({ message: "QR code not generated yet" });
+    }
+
+    // Send QR code via email
+    await sendQRCodeEmail(
+      email,
+      visitor.name,
+      visitor.qrCode,
+      {
+        host: visitor.host,
+        purpose: visitor.purpose,
+        phone: visitor.phone,
+        validUntil: visitor.validUntil ? visitor.validUntil.toLocaleString() : 'N/A',
+      }
+    );
+
+    // Optionally update visitor's email if not set
+    if (!visitor.email) {
+      visitor.email = email;
+      await visitor.save();
+    }
+
+    res.json({
+      message: `QR code sent successfully to ${email}`,
+    });
+  } catch (error) {
+    console.error('Failed to send QR code email:', error);
     res.status(500).json({ error: error.message });
   }
 };

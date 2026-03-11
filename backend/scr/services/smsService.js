@@ -226,21 +226,26 @@ const sendCheckOutSms = async (phone, name, duration) => {
  * @returns {string} - Formatted phone number
  */
 const formatPhone = (phone) => {
-  // Remove any spaces, dashes, or parentheses
-  let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  // Remove all non-numeric characters for processing
+  let cleaned = phone.replace(/\D/g, '');
   
-  // If already has +, return as is
-  if (cleaned.startsWith('+')) {
-    return cleaned;
+  // If it's a 10 digit number, add +91 (India)
+  if (cleaned.length === 10) {
+    return '+91' + cleaned;
   }
   
-  // If starts with country code without +, add it
-  if (cleaned.length > 10) {
+  // If it's a 12 digit number starting with 91, add +
+  if (cleaned.length === 12 && cleaned.startsWith('91')) {
     return '+' + cleaned;
   }
   
-  // Assume Indian number (+91)
-  return '+91' + cleaned;
+  // If it already starts with a + in the original string, preserve it
+  if (phone.trim().startsWith('+')) {
+    return '+' + cleaned;
+  }
+
+  // Fallback: just return with + as required by Twilio E.164
+  return '+' + cleaned;
 };
 
 module.exports = {
