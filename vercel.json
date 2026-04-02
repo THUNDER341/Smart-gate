@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/frontend/landing.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
